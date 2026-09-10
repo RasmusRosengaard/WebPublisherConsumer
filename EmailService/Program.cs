@@ -21,7 +21,7 @@ await channel.QueueDeclareAsync(QueueName, durable: true, exclusive: false, auto
 // binds the queue to the exchange, so it only gets messages matching the routing key
 await channel.QueueBindAsync(QueueName, ExchangeName, RoutingKey);
 
-Console.WriteLine($" [*] Waiting for {RoutingKey}. To exit press CTRL+C");
+Console.WriteLine($" [EmailService] Waiting for {RoutingKey}...");
 
 // handles each message as it arrives
 var consumer = new AsyncEventingBasicConsumer(channel);

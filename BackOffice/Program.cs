@@ -5,7 +5,7 @@ using RabbitMQ.Client.Events;
 const string HostName = "localhost";
 const string ExchangeName = "tours";
 const string RoutingKey = "tour.#"; // gets all tour.something
-const string QueueName = "backoffice-service";
+const string QueueName = "backoffice-queue";
 
 // creates a connection to the RabbitMQ server
 var factory = new ConnectionFactory { HostName = HostName };
@@ -21,7 +21,7 @@ await channel.QueueDeclareAsync(QueueName, durable: true, exclusive: false, auto
 // binds the queue to the exchange, so it gets every tour event
 await channel.QueueBindAsync(QueueName, ExchangeName, RoutingKey);
 
-Console.WriteLine($" [*] Waiting for {RoutingKey}. To exit press CTRL+C");
+Console.WriteLine($" [BackOffice] Waiting for {RoutingKey}...");
 
 // handles each message as it arrives
 var consumer = new AsyncEventingBasicConsumer(channel);
