@@ -1,0 +1,134 @@
+﻿@page "/Book"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using RabbitMQ.Client
+@using System.Text
+<PageTitle>Book</PageTitle>
+
+<h1>Book a tour</h1>
+<EditForm Model="booking" OnValidSubmit="HandleBookSubmit" FormName="booking">
+    <label for="name">Name</label>
+    <InputText id="name" @bind-Value="booking.Name" />
+
+    <label for="email">Email</label>
+    <InputText id="email" type="email" @bind-Value="booking.Email" />
+
+    <label for="tours">Tours</label>
+    <InputSelect id="tours" multiple size="@Tours.Length" @bind-Value="booking.SelectedTours">
+        @foreach (string tour in Tours)
+        {
+            <option value="@tour">@tour</option>
+        }
+    </InputSelect>
+
+
+    <button type="submit">Submit</button>
+</EditForm>
+
+<h1>Cancel a booking</h1>
+<EditForm Model="cancellation" OnValidSubmit="HandleCancelSubmit" FormName="cancellation">
+    <label for="booking">Booking</label>
+    <InputSelect id="booking" @bind-Value="BookingDeleteId">
+        <option value="">select a booking</option>
+        @foreach (BookingModel item in Bookings)
+        {
+            <option value="@item.Id">@item.Name - @string.Join(", ", item.SelectedTours)</option>
+        }
+    </InputSelect>
+
+    <button type="submit">Cancel booking</button>
+</EditForm>
+
+
+@if (statusMessage is not null)
+{
+    <div role="alert">@statusMessage</div>
+}
+
+@code {
+    private static readonly string[] Tours =[
+        "Copenhagen City Walk",
+        "Kronborg Castle Day Trip",
+        "Møns Klint Hike",
+        "Roskilde Viking Ship Tour"
+    ];
+    private static readonly List<BookingModel> Bookings = new List<BookingModel>();
+    private BookingModel booking = new BookingModel();
+    private CancellationModel cancellation = new CancellationModel();
+
+    private int BookingDeleteId;
+    private string? statusMessage;
+
+    // messaging conf
+    private const string HostName = "localhost";
+    private const string ExchangeName = "tours";
+    private const string BookedRoutingKey = "tour.booked";
+    private const string CancelledRoutingKey = "tour.cancelled";
+    private const string PublisherName = "Booking_Web";
+
+    private async Task HandleBookSubmit()
+    {
+        Bookings.Add(booking);
+
+        string message = $"{booking.Name} <{booking.Email}> booked: {string.Join(separator: ", ", booking.SelectedTours)}";
+        await PublishAsync(BookedRoutingKey, message);
+
+        statusMessage = $"Name: {booking.Name}, booked: {string.Join(separator: ", ", booking.SelectedTours)}";
+        booking = new BookingModel();
+    }
+
+    private async Task HandleCancelSubmit()
+    {
+        BookingModel? cancelled = Bookings.FirstOrDefault((BookingModel b) => b.Id.ToString() == cancellation.BookingId);
+        if (cancelled is null)
+        {
+            return;
+        }
+
+        Bookings.Remove(cancelled);
+
+        string message = $"{cancelled.Name} <{cancelled.Email}> cancelled: {string.Join(separator: ", ", cancelled.SelectedTours)}";
+        await PublishAsync(CancelledRoutingKey, message);
+
+        statusMessage = $"Booking for {cancelled.Name} has been cancelled.";
+        cancellation = new CancellationModel();
+    }
+
+    private async Task PublishAsync(string routingKey, string message)
+    {
+        // creates a connection to Rabbit
+        ConnectionFactory factory = new ConnectionFactory { HostName = HostName };
+        await using IConnection connection = await factory.CreateConnectionAsync();
+        await using IChannel channel = await connection.CreateChannelAsync();
+
+        // declares the exchange with the specified name and type
+        await channel.ExchangeDeclareAsync(exchange: ExchangeName, type: ExchangeType.Topic);
+
+        // publishes the message to the exchange with the specified routing key
+        byte[] body = Encoding.UTF8.GetBytes(message);
+        await channel.BasicPublishAsync(exchange: ExchangeName, routingKey: routingKey, body: body);
+
+        Console.WriteLine($" {PublisherName} Sent {routingKey}: {message}");
+    }
+
+    private sealed class BookingModel
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+
+        [Required(ErrorMessage = "Please enter your name.")]
+        public string? Name { get; set; }
+
+        [Required(ErrorMessage = "Please enter your email.")]
+        [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
+        public string? Email { get; set; }
+
+        [MinLength(length: 1, ErrorMessage = "Please select at least one tour.")]
+        public string[] SelectedTours { get; set; } = [];
+    }
+
+    private sealed class CancellationModel
+    {
+        [Required(ErrorMessage = "Please select a booking.")]
+        public string? BookingId { get; set; }
+    }
+}
