@@ -28,7 +28,7 @@
 <h1>Cancel a booking</h1>
 <EditForm Model="cancellation" OnValidSubmit="HandleCancelSubmit" FormName="cancellation">
     <label for="booking">Booking</label>
-    <InputSelect id="booking" @bind-Value="BookingDeleteId">
+    <InputSelect id="booking" @bind-Value="cancellation.BookingId">
         <option value="">select a booking</option>
         @foreach (BookingModel item in Bookings)
         {
@@ -56,7 +56,6 @@
     private BookingModel booking = new BookingModel();
     private CancellationModel cancellation = new CancellationModel();
 
-    private int BookingDeleteId;
     private string? statusMessage;
 
     // messaging conf

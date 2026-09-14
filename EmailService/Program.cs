@@ -5,7 +5,7 @@ using RabbitMQ.Client.Events;
 const string HostName = "localhost";
 const string ExchangeName = "tours";
 const string RoutingKey = "tour.booked"; // gets only tour.booked
-const string QueueName = "backoffice-queue";
+const string QueueName = "emailservice-queue";
 
 // creates a connection to the RabbitMQ server
 var factory = new ConnectionFactory { HostName = HostName };
